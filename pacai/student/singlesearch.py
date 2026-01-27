@@ -27,8 +27,28 @@ def depth_first_search(
     See: https://en.wikipedia.org/wiki/Depth-first_search .
     """
 
-    # *** Your Code Here ***
-    raise NotImplementedError('depth_first_search')
+    fringe = Stack()
+    visited = set()
+
+    start = problem.get_starting_node()
+    fringe.push((start, []))
+
+    while not fringe.is_empty():
+        state, path = fringe.pop()
+
+        if problem.is_goal_node(state):
+            return SearchSolution(path, len(path))
+
+        if state in visited:
+            continue
+
+        visited.add(state)
+
+        for successor, action, cost in problem.get_successor_nodes(state):
+            if successor not in visited:
+                fringe.push((successor, path + [action]))
+
+    return SearchSolution([], 0)
 
 def breadth_first_search(
         problem: pacai.core.search.SearchProblem,
@@ -41,8 +61,25 @@ def breadth_first_search(
     See: https://en.wikipedia.org/wiki/Breadth-first_search .
     """
 
-    # *** Your Code Here ***
-    raise NotImplementedError('breadth_first_search')
+    fringe = Queue()
+    visited = set()
+
+    start = problem.get_starting_node()
+    fringe.push((start, []))
+    visited.add(start)
+
+    while not fringe.is_empty():
+        state, path = fringe.pop()
+
+        if problem.is_goal_node(state):
+            return SearchSolution(path, len(path))
+
+        for successor, action, cost in problem.get_successor_nodes(state):
+            if successor not in visited:
+                visited.add(successor)
+                fringe.push((successor, path + [action]))
+
+    return SearchSolution([], 0)
 
 def uniform_cost_search(
         problem: pacai.core.search.SearchProblem,
@@ -55,8 +92,28 @@ def uniform_cost_search(
     See: https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm#Practical_optimizations_and_infinite_graphs .
     """
 
-    # *** Your Code Here ***
-    raise NotImplementedError('uniform_cost_search')
+    fringe = PriorityQueue()
+    visited = dict()
+
+    start = problem.get_starting_node()
+    fringe.push((start, [], 0), 0)
+
+    while not fringe.is_empty():
+        state, path, cost = fringe.pop()
+
+        if state in visited and visited[state] <= cost:
+            continue
+
+        visited[state] = cost
+
+        if problem.is_goal_node(state):
+            return SearchSolution(path, cost)
+
+        for successor, action, step_cost in problem.get_successor_nodes(state):
+            new_cost = cost + step_cost
+            fringe.push((successor, path + [action], new_cost), new_cost)
+
+    return SearchSolution([], 0)
 
 def astar_search(
         problem: pacai.core.search.SearchProblem,
@@ -69,8 +126,30 @@ def astar_search(
     See: https://en.wikipedia.org/wiki/A*_search_algorithm .
     """
 
-    # *** Your Code Here ***
-    raise NotImplementedError('astar_search')
+    fringe = PriorityQueue()
+    visited = dict()
+
+    start = problem.get_starting_node()
+    start_h = heuristic(start, problem)
+    fringe.push((start, [], 0), start_h)
+
+    while not fringe.is_empty():
+        state, path, cost = fringe.pop()
+
+        if state in visited and visited[state] <= cost:
+            continue
+
+        visited[state] = cost
+
+        if problem.is_goal_node(state):
+            return SearchSolution(path, cost)
+
+        for successor, action, step_cost in problem.get_successor_nodes(state):
+            new_cost = cost + step_cost
+            priority = new_cost + heuristic(successor, problem)
+            fringe.push((successor, path + [action], new_cost), priority)
+
+    return SearchSolution([], 0)
 
 class CornersSearchNode(pacai.core.search.SearchNode):
     """
@@ -79,11 +158,20 @@ class CornersSearchNode(pacai.core.search.SearchNode):
     You get to implement this search node however you want.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, position, visited_corners):
         """ Construct a search node to help search for corners. """
+        self.position = position
+        self.visited_corners = visited_corners
 
-        # *** Your Code Here ***
-        # Remember that you can also add argument to your constructor.
+    def __eq__(self, other):
+        return (
+            isinstance(other, CornersSearchNode)
+            and self.position == other.position
+            and self.visited_corners == other.visited_corners
+        )
+
+    def __hash__(self):
+        return hash((self.position, self.visited_corners))
 
 class CornersSearchProblem(pacai.core.search.SearchProblem[CornersSearchNode]):
     """
@@ -103,19 +191,57 @@ class CornersSearchProblem(pacai.core.search.SearchProblem[CornersSearchNode]):
             **kwargs: typing.Any) -> None:
         super().__init__(**kwargs)
 
-        # *** Your Code Here ***
+        self.walls = game_state.get_walls()
+        self.starting_position = game_state.get_pacman_position()
+
+        top = self.walls.get_height() - 2
+        right = self.walls.get_width() - 2
+
+        self.corners = (
+            (1, 1),
+            (1, top),
+            (right, 1),
+            (right, top)
+        )
 
     def get_starting_node(self) -> CornersSearchNode:
-        # *** Your Code Here ***
-        raise NotImplementedError('CornersSearchProblem.get_starting_node')
+        visited = tuple(
+            self.starting_position == corner
+            for corner in self.corners
+        )
+        return CornersSearchNode(self.starting_position, visited)
 
     def is_goal_node(self, node: CornersSearchNode) -> bool:
-        # *** Your Code Here ***
-        raise NotImplementedError('CornersSearchProblem.is_goal_node')
+        return all(node.visited_corners)
 
     def get_successor_nodes(self, node: CornersSearchNode) -> list[pacai.core.search.SuccessorInfo]:
-        # *** Your Code Here ***
-        raise NotImplementedError('CornersSearchProblem.get_successor_nodes')
+        successors = []
+        x, y = node.position
+
+        for direction in [
+            Directions.NORTH,
+            Directions.EAST,
+            Directions.SOUTH,
+            Directions.WEST
+        ]:
+            dx, dy = Directions.direction_to_vector(direction)
+            next_x, next_y = int(x + dx), int(y + dy)
+
+            if not self.walls[next_x][next_y]:
+                next_position = (next_x, next_y)
+
+                visited = list(node.visited_corners)
+                for i, corner in enumerate(self.corners):
+                    if next_position == corner:
+                        visited[i] = True
+
+                successors.append(
+                    (CornersSearchNode(next_position, tuple(visited)),
+                     direction,
+                     1)
+                )
+
+        return successors
 
 def corners_heuristic(node: CornersSearchNode, problem: CornersSearchProblem, **kwargs: typing.Any) -> float:
     """
@@ -126,17 +252,33 @@ def corners_heuristic(node: CornersSearchNode, problem: CornersSearchProblem, **
     i.e. it should be admissible.
     (You need not worry about consistency for this heuristic to receive full credit.)
     """
+    position = node.position
+    visited = node.visited_corners
+    corners = problem.corners
 
-    # *** Your Code Here ***
-    return pacai.search.common.null_heuristic(node, problem)  # Default to a trivial solution.
+    unvisited = [
+        corner
+        for visited_flag, corner in zip(visited, corners)
+        if not visited_flag
+    ]
 
+    if not unvisited:
+        return 0
+
+    return max(manhattan(position, corner) for corner in unvisited)
+    
 def food_heuristic(node: pacai.search.food.FoodSearchNode, problem: pacai.search.food.FoodSearchProblem, **kwargs: typing.Any) -> float:
     """
     A heuristic for the FoodSearchProblem.
     """
+    position = node.position
+    food_list = node.food.as_list()
 
-    # *** Your Code Here ***
-    return pacai.search.common.null_heuristic(node, problem)  # Default to a trivial solution.
+    if not food_list:
+        return 0
+
+    distances = [manhattan(position, food) for food in food_list]
+    return max(distances)
 
 class ClosestDotSearchAgent(pacai.agents.searchproblem.GreedySubproblemSearchAgent):
     """
@@ -161,7 +303,8 @@ class ClosestDotSearchAgent(pacai.agents.searchproblem.GreedySubproblemSearchAge
     and you can pass whatever you want to the parent's `__init__()`.
     """
 
-    # *** Your Code Here ***
+    def __init__(self, **kwargs):
+        super().__init__(problem_class=AnyMarkerSearchProblem, **kwargs)
 
 class AnyMarkerSearchProblem(pacai.search.position.PositionSearchProblem):
     """
@@ -178,14 +321,48 @@ class AnyMarkerSearchProblem(pacai.search.position.PositionSearchProblem):
             **kwargs: typing.Any) -> None:
         super().__init__(game_state, **kwargs)
 
-        # *** Your Code Here ***
+        self.target_marker = target_marker
 
     def is_goal_node(self, node: pacai.search.position.PositionSearchNode) -> bool:
-        # *** Your Code Here ***
-        raise NotImplementedError('CornersSearchProblem.is_goal_node')
+        x, y = node.position
+        return self.walls[x][y] == self.target_marker
 
 class ApproximateSearchAgent(pacai.core.agent.Agent):
     """
     A search agent that tries to perform an approximate search instead of an exact one.
     In other words, this agent is okay with a solution that is "good enough" and not necessarily optimal.
     """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def get_action(self, state: GameState):
+        """
+        Example strategy:
+        - Move towards the nearest food using Manhattan distance.
+        - This is simple, dynamic, and fast.
+        """
+        pacman_position = state.get_agent_position(0)
+        food_positions = state.get_food().as_list()
+
+        if not food_positions:
+            return None
+
+        nearest_food = min(
+            food_positions,
+            key=lambda food: abs(food[0] - pacman_position[0]) + abs(food[1] - pacman_position[1])
+        )
+
+        legal = state.get_legal_actions(0)
+
+        best_action = None
+        min_distance = float("inf")
+        for action in legal:
+            successor = state.generate_successor(0, action)
+            succ_pos = successor.get_agent_position(0)
+            distance = abs(succ_pos[0] - nearest_food[0]) + abs(succ_pos[1] - nearest_food[1])
+            if distance < min_distance:
+                min_distance = distance
+                best_action = action
+
+        return best_action
