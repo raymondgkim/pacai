@@ -16,6 +16,9 @@ import pacai.search.common
 import pacai.search.food
 import pacai.search.position
 
+import pacai.util.containers
+import pacai.core.search
+
 def depth_first_search(
         problem: pacai.core.search.SearchProblem,
         heuristic: pacai.core.search.SearchHeuristic,
@@ -27,7 +30,7 @@ def depth_first_search(
     See: https://en.wikipedia.org/wiki/Depth-first_search .
     """
 
-    fringe = Stack()
+    fringe = pacai.util.containers.Stack()
     visited = set()
 
     start = problem.get_starting_node()
@@ -37,7 +40,7 @@ def depth_first_search(
         state, path = fringe.pop()
 
         if problem.is_goal_node(state):
-            return SearchSolution(path, len(path))
+            return pacai.core.search.SearchSolution(path, len(path))
 
         if state in visited:
             continue
@@ -48,7 +51,7 @@ def depth_first_search(
             if successor not in visited:
                 fringe.push((successor, path + [action]))
 
-    return SearchSolution([], 0)
+    return pacai.core.search.SearchSolution([], 0)
 
 def breadth_first_search(
         problem: pacai.core.search.SearchProblem,
